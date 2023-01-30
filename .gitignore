@@ -8,7 +8,7 @@
 *.xlsx
 *.pt
 *.pth
-results/*
+result/*
 data/*
 
 
