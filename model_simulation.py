@@ -195,7 +195,7 @@ class GhostBurst(object):
         Os = y[13]
         # Vs, Vd, ns, hd, nd, pd, Ca, CaER, hca, C0, C1, C2, Ds, Os = y
         # global lastrelease
-        if self.glui(t) == 1:
+        if glui(t) == 1:
             # print(t)
             self.lastrelease = t
             rltime = t
@@ -217,7 +217,7 @@ class GhostBurst(object):
         I_NMDA = self.gNMDA * self.B(Vd) * Os * (Vd - self.VCa)
 
         dvdt = [(self.Iapp - I_NaS - I_DrS - self.gleak * (Vs - self.Vleak) - (self.gc / self.kappa) * (Vs - Vd)) / self.C_m,
-        (self.sigma(dw(t)/dt) - I_NaD - I_DrD - self.gleak * (Vd - self.Vleak) - (self.gc / (1 - self.kappa)) * (Vd - Vs) - I_NMDA - I_SK) / self.C_m,
+        (self.sigma*(dw(t)/dt) - I_NaD - I_DrD - self.gleak * (Vd - self.Vleak) - (self.gc / (1 - self.kappa)) * (Vd - Vs) - I_NMDA - I_SK) / self.C_m,
         (self.ns_inf(Vs) - ns) / self.tau_ns,
         (self.hd_inf(Vd) - hd) / self.tau_hd,
         (self.nd_inf(Vd) - nd) / self.tau_nd,
@@ -245,7 +245,7 @@ class GhostBurst(object):
             self.duration = 24000     # 120 seconds (each second is equivalent to 200)
         
         if 'ICs' in options:
-            slef.ICs = options['ICs']
+            self.ICs = options['ICs']
             assert isinstance(self.ICs, (np.ndarray, list)), ValueError('initial conditions should be numpy array or list')
         else:
             self.ICs = np.random.random(14)
@@ -270,7 +270,7 @@ class GhostBurst(object):
         dw = interp1d(x=self.t_eval, y=dw)
         glui = interp1d(x=self.t_eval, y=glui)
 
-        self.model = solve_ivp(self.HH, t_span=self.tdur, y0=slef.ICs, t_eval=self.t_eval, args=(glui, dw, ), rtol=1e-5)
+        self.model = solve_ivp(self.HH, t_span=self.tdur, y0=self.ICs, t_eval=self.t_eval, args=(glui, dw, ), rtol=1e-5)
         # Add info needed by certain spiking features and efel features
         # info = {"stimulus_start": self.t_eval[0], "stimulus_end": self.t_eval[-1]}
         return self.t_eval, self.model.y[0]
@@ -303,16 +303,12 @@ def main_optimize(params, func: callable, recording_data, **kwargs):
         ICs = kwargs['ICs']
         assert isinstance(ICs, (np.ndarray, list)), ValueError('initial conditions should be numpy array or list')
     else:
-        ICs = [-53.2440, -56.3710, 0.0098, 0.7396, 0.0413, 0.1667, 0.0000, 
+        ICs = [-53.2440, -56.3710, 0.0098, 0.7396, 0.0413, 0.1667, 
                0.00, 0.0, 0.000, 1.0, 0.0, 0.0, 0.0, 0.0]
-    print(f'initial conditions {ICs}')
-
+    # print(f'initial conditions {ICs}')
     
-    dt = 0.005
-    tdur = [0, duration]
-    duration = 200
-    gb_model = GhostBurst(params)
-    t_eval, data = gb_model.run(dt=dt, duration=duration)
+    gb_model = func(params)
+    t_eval, data = gb_model.run(dt=dt, duration=duration, ICs= ICs)
 
     if 'cut_off' in kwargs:
         cut_off = kwargs['cut_off']
@@ -360,7 +356,7 @@ def main_optimize(params, func: callable, recording_data, **kwargs):
     elif mode == 'residual':
         residual_err = hist_model - hist_data
     return residual_err
-
+#%%
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -379,8 +375,8 @@ if __name__ == "__main__":
 
     recording_data = spiketimes['control'][5]
     params = get_params()
-    kw = {'mode': 'residual', 'hist_mode': 'normal', 'duration': 4000}
-    mini = Minimizer(main_optimize, params, fcn_args=(GhostBurst, recording_data), fcn_kws=kw, nan_policy='omit')
-    out = mini.emcee()   
-    # results = minimize(main, params, args=(isi_data,), method='leastsq') 
+    kw = {'mode': 'residual', 'hist_mode': 'normal', 'duration': 1000}
+    optimizer_fcn = Minimizer(main_optimize, params, fcn_args=(GhostBurst, recording_data), fcn_kws=kw, nan_policy='omit')
+    results = optimizer_fcn.emcee()   
+    results = minimize(main_optimize, params, args=(GhostBurst, recording_data,), kws=kw, nan_policy='omit', method='leastsq') 
     report_fit(results)
