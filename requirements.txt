@@ -1,0 +1,11 @@
+h5py==3.6.0
+matplotlib==3.5.1
+numpy==1.22.3
+pandas==1.3.5
+scikit-learn==1.0.2
+scipy==1.8.0
+seaborn==0.11.2
+tqdm==4.62.3
+skspatial==6.5.0
+lmfit==1.0.3
+

@@ -309,3 +309,91 @@ plt.close()
 # =============================================================================
 # 
 # =============================================================================
+
+def cluster_distances(arr1, arr2 = None, k = None):
+    if not k:
+        k=1
+    if not arr2:
+        dist = spatial.distance.cdist(arr1, arr1)
+        updist = dist[np.triu_indices_from(dist, k=k)]
+    else:
+        dist = spatial.distance.cdist(arr1, arr2)
+        updist = dist[np.triu_indices_from(dist, k=k)]
+    return np.mean(updist)
+
+vol_dist_stats_block = []
+vol_dist_stats_serotonin = []
+for i in range(10):
+    random.seed(i)
+    sample_selections_block = random.sample(range(len(block)), 30)
+    bids = [cb_ids[x] for x in sample_selections_block]
+    sample_selections_serotonin = random.sample(range(len(serotonin)), 20)
+    sids = [cs_ids[x] for x in sample_selections_serotonin]
+    pc_cb = pca_c.transform(control[bids,:])
+    vol_cb = spatial.ConvexHull(pc_cb[:, :3])
+    pc_b = pca_c.transform(block[sample_selections_block,:])
+    vol_b = spatial.ConvexHull(pc_b[:, :3])
+    pc_cs = pca_c.transform(control[sids,:])
+    vol_cs = spatial.ConvexHull(pc_cs[:, :3])
+    pc_s = pca_c.transform(serotonin[sample_selections_serotonin,:])
+    vol_s = spatial.ConvexHull(pc_s[:, :3])
+    volume_cbl = vol_b.volume/vol_cb.volume
+    volume_csl = vol_s.volume/vol_cs.volume
+    dist_cbl = cluster_distances(pc_b[:, :3])/cluster_distances(pc_cb[:, :3])
+    dist_csl = cluster_distances(pc_s[:, :3])/cluster_distances(pc_cs[:, :3])
+    vol_dist_stats_block.append([vol_cb.volume, vol_b.volume, cluster_distances(pc_cb[:, :3]), cluster_distances(pc_b[:, :3])])
+    vol_dist_stats_serotonin.append([vol_cs.volume, vol_s.volume, cluster_distances(pc_cs[:, :3]), cluster_distances(pc_s[:, :3])])
+
+vol_stats_block = np.array(vol_dist_stats_block)[:,[0,1]]
+dist_stats_block = np.array(vol_dist_stats_block)[:,[2,3]]
+vol_stats_serotonin = np.array(vol_dist_stats_serotonin)[:,[0,1]]
+dist_stats_serotonin = np.array(vol_dist_stats_serotonin)[:,[2,3]]
+
+block_cond = []
+block_cond.append(vol_stats_block)
+block_cond.append(dist_stats_block)
+
+serotonin_cond = []
+serotonin_cond.append(vol_stats_serotonin)
+serotonin_cond.append(dist_stats_serotonin)
+
+
+fig, axs = plt.subplots(nrows=2, ncols=1, constrained_layout=True, figsize=(4.5*cm, 8*cm))
+for sts, ax, kind in zip(block_cond, axs.flat, ['volume %', 'distance %']):
+    stat, p_val = stats.ttest_ind(sts[:,0], sts[:,1])
+    sts[:,1] = sts[:,1]/np.median(sts[:,0])
+    sts[:,0] = sts[:,0]/np.median(sts[:,0])
+    ax.boxplot(sts)
+    ax.set_ylabel(kind, fontsize=12)
+    ax.set_yticks([0,0.4,0.8,1.2], [0,40,80,120],
+                      fontsize=10)
+    if kind == 'volume %':
+        ax.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
+        print(f"volume stat test: *p = {p_val}")
+    if kind == 'distance %':
+        ax.set_xticks([1, 2], ['control', 'block'], rotation = 20,
+                      fontsize=12)
+        print(f"distance stat test: **p = {p_val}")
+plt.savefig(os.path.join(results_path,f"ratios_block.pdf"), dpi=300, bbox_inches='tight')
+
+
+fig, axs = plt.subplots(nrows=2, ncols=1, constrained_layout=True, figsize=(4.5*cm, 8*cm))
+for sts, ax, kind in zip(serotonin_cond, axs.flat, ['% volume', '% distance']):
+    stat, p_val = stats.ttest_ind(sts[:,0], sts[:,1])
+    sts[:,1] = sts[:,1]/np.median(sts[:,0])
+    sts[:,0] = sts[:,0]/np.median(sts[:,0])
+    ax.boxplot(sts)
+    ax.set_ylabel(kind, fontsize=12)
+    if kind == '% volume':
+        ax.set_yticks([0,1,2,3,4,5], [0,100,200,300,400,500],
+                          fontsize=10)
+        ax.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
+        print(f"volume stat test: *p = {p_val}")
+
+    if kind == '% distance':
+        ax.set_xticks([1, 2], ['control', 'serotonin'], rotation = 20,
+                      fontsize=12)
+        ax.set_yticks([0,0.5,1,1.5,2,2.5], [0,50,100,150,200,250],
+                          fontsize=10)
+        print(f"distance stat test: **p = {p_val}")
+plt.savefig(os.path.join(results_path,f"ratios_serotonin.pdf"), dpi=300, bbox_inches='tight')
