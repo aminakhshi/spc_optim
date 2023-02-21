@@ -217,7 +217,7 @@ class GhostBurst(object):
         I_NMDA = self.gNMDA * self.B(Vd) * Os * (Vd - self.VCa)
 
         dvdt = [(self.Iapp - I_NaS - I_DrS - self.gleak * (Vs - self.Vleak) - (self.gc / self.kappa) * (Vs - Vd)) / self.C_m,
-        (self.sigma*(dw(t)/dt) - I_NaD - I_DrD - self.gleak * (Vd - self.Vleak) - (self.gc / (1 - self.kappa)) * (Vd - Vs) - I_NMDA - I_SK) / self.C_m,
+        (self.sigma*(dw(t)/self.dt) - I_NaD - I_DrD - self.gleak * (Vd - self.Vleak) - (self.gc / (1 - self.kappa)) * (Vd - Vs) - I_NMDA - I_SK) / self.C_m,
         (self.ns_inf(Vs) - ns) / self.tau_ns,
         (self.hd_inf(Vd) - hd) / self.tau_hd,
         (self.nd_inf(Vd) - nd) / self.tau_nd,
@@ -292,7 +292,11 @@ def main_optimize(params, func: callable, recording_data, **kwargs):
         hist_mode = 'density'
     print(f'{hist_mode} mode histogram estimation')
 
-    
+    if 'dt' in kwargs:
+        dt = kwargs['dt']
+    else:
+        dt = dt = 0.005
+        
     if 'duration' in kwargs:
         duration = kwargs['duration']
     else:
@@ -375,7 +379,7 @@ if __name__ == "__main__":
 
     recording_data = spiketimes['control'][5]
     params = get_params()
-    kw = {'mode': 'residual', 'hist_mode': 'normal', 'duration': 1000}
+    kw = {'mode': 'residual', 'hist_mode': 'normal', 'duration': 4000}
     optimizer_fcn = Minimizer(main_optimize, params, fcn_args=(GhostBurst, recording_data), fcn_kws=kw, nan_policy='omit')
     results = optimizer_fcn.emcee()   
     results = minimize(main_optimize, params, args=(GhostBurst, recording_data,), kws=kw, nan_policy='omit', method='leastsq') 
